@@ -109,7 +109,7 @@ const Conversation = () => {
                 <FormControl>
                   <Textarea
                     placeholder="Ask me anything..."
-                    className="border-none shadow-none focus-visible:ring-0"
+                    className="border-none shadow-none focus-visible:ring-0 resize-none"
                     {...field}
                   />
                 </FormControl>
