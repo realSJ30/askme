@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { ChatCompletionMessageParam } from "openai/src/resources/index.js";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import HeroComponent from "./hero-component";
 import MessageBubble from "./message-bubble";
@@ -43,7 +44,7 @@ const Conversation = () => {
       };
       const newMessages = [...messages, userMessage];
 
-      setMessages((currentMessage) => [...newMessages]);
+      setMessages([...newMessages]);
 
       const response = await axios.post("/api/conversation", {
         messages: newMessages,
@@ -53,6 +54,7 @@ const Conversation = () => {
       form.reset();
     } catch (error) {
       console.log(error);
+      toast.error("Something went wrong!");
     } finally {
       router.refresh();
     }
