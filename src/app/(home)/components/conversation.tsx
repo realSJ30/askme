@@ -14,7 +14,6 @@ import { MessageSchema } from "@/lib/schema";
 import { GptModels } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Send } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { ChatCompletionMessageParam } from "openai/src/resources/index.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -25,7 +24,6 @@ import MessageBubble from "./message-bubble";
 import ModelSwitcher from "./model-switcher";
 
 const Conversation = () => {
-  const router = useRouter();
   const [messages, setMessages] = useState<ChatCompletionMessageParam[]>([]);
   const [buffValue, setBuffValue] = useState("");
   const [model, setModel] = useState<GptModels>("gpt-4o-mini");
@@ -99,8 +97,6 @@ const Conversation = () => {
     } catch (error) {
       console.log(error);
       toast.error("Something went wrong!");
-    } finally {
-      router.refresh();
     }
   };
 
