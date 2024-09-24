@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Ellipsis, LoaderPinwheel } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 
 interface MessageBubbleProps {
   role: "function" | "system" | "user" | "assistant" | "tool";
@@ -18,7 +18,11 @@ const MessageBubble = ({ role, content, isLoading }: MessageBubbleProps) => {
       )}
     >
       {isLoading && <Ellipsis className="size-4 animate-bounce" />}
-      <p className="text-sm">{content}</p>
+      {role === "user" ? (
+        <p className="text-sm">{content}</p>
+      ) : (
+        <pre className="text-wrap text-sm">{content}</pre>
+      )}
       <p
         className={cn(
           "text-xs text-neutral-600 mt-1.5",

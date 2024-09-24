@@ -11,21 +11,28 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSchema } from "@/lib/schema";
+import { GptModels } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { Loader, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ChatCompletionMessageParam } from "openai/src/resources/index.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import HeroComponent from "./hero-component";
 import MessageBubble from "./message-bubble";
+import ModelSwitcher from "./model-switcher";
 
 const Conversation = () => {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatCompletionMessageParam[]>([]);
+  const [buffValue, setBuffValue] = useState("");
+  const [model, setModel] = useState<GptModels>("gpt-4o-mini");
+
+  const handleSetModel = useCallback((model: GptModels) => {
+    setModel(model);
+  }, []);
 
   const form = useForm<z.infer<typeof MessageSchema>>({
     resolver: zodResolver(MessageSchema),
@@ -46,12 +53,49 @@ const Conversation = () => {
 
       setMessages([...newMessages]);
 
-      const response = await axios.post("/api/conversation", {
-        messages: newMessages,
+      const response = await fetch("/api/conversation", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: newMessages,
+          model,
+        }),
       });
-
-      setMessages((currentMessage) => [...currentMessage, response.data]);
       form.reset();
+      if (response.ok) {
+        const reader = response.body?.getReader();
+
+        const processStream = async () => {
+          if (reader) {
+            let unfinishedContent = "";
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                let assistantMessage: ChatCompletionMessageParam = {
+                  role: "assistant",
+                  content: unfinishedContent,
+                };
+                setMessages((currentMessage) => [
+                  ...currentMessage,
+                  assistantMessage,
+                ]);
+                setBuffValue("");
+                unfinishedContent = "";
+
+                break;
+              }
+              let chunk = new TextDecoder("utf-8").decode(value);
+              chunk = chunk.replace(/^data: /, "");
+              setBuffValue((prev) => prev + chunk);
+              unfinishedContent = unfinishedContent + chunk;
+            }
+          }
+        };
+        processStream().catch((err) =>
+          toast.error("Something went wrong!", err)
+        );
+      } else {
+        toast.error("Something went wrong!");
+      }
     } catch (error) {
       console.log(error);
       toast.error("Something went wrong!");
@@ -66,10 +110,11 @@ const Conversation = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView();
     }
-  }, [messages, isLoading]);
+  }, [messages, buffValue]);
 
   return (
-    <div className="h-full flex flex-col items-center justify-center py-12 px-4">
+    <div className="h-full flex flex-col items-center justify-center py-12 px-4 relative">
+      <ModelSwitcher setModel={handleSetModel} model={model} />
       {messages.length === 0 ? (
         <div className="flex-1 flex justify-center items-center max-w-[640px] w-full">
           <HeroComponent />
@@ -85,8 +130,8 @@ const Conversation = () => {
                   content={`${message.content?.toString()}`}
                 />
               ))}
-              {isLoading && (
-                <MessageBubble role="assistant" content="" isLoading />
+              {buffValue && (
+                <MessageBubble role={"assistant"} content={buffValue} />
               )}
             </div>
             <div ref={scrollRef}></div>
@@ -121,12 +166,12 @@ const Conversation = () => {
             disabled={!form.formState.isDirty || isLoading}
             type="submit"
             size={"icon"}
-            className={"rounded-lg p-4 bg-neutral-300"}
+            className={"rounded-lg p-4 "}
           >
             {isLoading ? (
-              <Loader className="size-5 animate-spin shrink-0 text-neutral-400" />
+              <Loader className="size-5 animate-spin shrink-0 text-white" />
             ) : (
-              <Send className="size-5 shrink-0 text-neutral-400" />
+              <Send className="size-5 shrink-0 text-white" />
             )}
           </Button>
         </form>

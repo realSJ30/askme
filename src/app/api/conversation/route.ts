@@ -1,5 +1,7 @@
+import { StreamingResponse } from "@/lib/StreamingResponse";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -8,7 +10,7 @@ const openai = new OpenAI({
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { messages } = body;
+        const { messages, model } = body;
 
         if (!messages) {
             return new NextResponse("No message body", { status: 400 })
@@ -16,13 +18,32 @@ export async function POST(req: Request) {
 
         const chatResponse = await openai.chat.completions.create({
             messages,
-            model: "gpt-4o-mini",
+            model: model || "gpt-4o-mini",
+            stream: true,
         });
 
+        const encoder = new TextEncoder();
 
-        return NextResponse.json(chatResponse.choices[0].message)
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    for await (const chunk of chatResponse) {
+                        const content = chunk.choices[0]?.delta?.content || ""
+                        controller.enqueue(encoder.encode(content));
+                    }
+                    controller.close();
+                } catch (error) {
+                    controller.error(error);
+                }
+            }
+        });
+        const response = new StreamingResponse(stream, {
+            status: 200
+        })
+        return response
+
     } catch (error) {
-        console.log("[ERROR]", error)
-        return new NextResponse("Internal error", { status: 500 })
+        console.log("[ERROR]", error);
+        return new NextResponse("Internal error", { status: 500 });
     }
 }
